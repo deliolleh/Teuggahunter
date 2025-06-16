@@ -51,10 +51,11 @@ def extract_email_body(payload: Dict[str, Any]) -> str:
 def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
     """
     이메일 본문에서 항공권 정보 블록을 파싱합니다.
+    여러 항로의 특가 정보도 처리할 수 있습니다.
     """
     date_pattern = r'(\d{1,2})월\s*(\d{1,2})일\s*\([^)]+\)\s*-\s*(\d{1,2})월\s*(\d{1,2})일\s*\([^)]+\)'
     price_pattern = r'(?:\d+%\s*할인\s*)?최저가:\s*₩([\d,]+)'
-    airline_pattern = r'([^·\n]+)·\s*직항\s*·\s*([A-Z]{3})[–-]([A-Z]{3})'
+    airline_pattern = r'([^·\n]+)·\s*(?:직항|경유)\s*·\s*([A-Z]{3})[–-]([A-Z]{3})'
     link_pattern = r'https://www\.google\.com/travel/flights\?[^\s"]+'
 
     current_date = datetime.now()
@@ -64,6 +65,7 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
     results = []
     pos = 0
 
+    # 날짜 블록을 찾아서 각각 처리
     for date_match in re.finditer(date_pattern, body):
         depart_month, depart_day, return_month, return_day = map(int, date_match.groups())
         depart_year = current_year + 1 if depart_month < current_month else current_year
@@ -71,7 +73,7 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
         depart_date = f"{depart_year}-{depart_month:02d}-{depart_day:02d}"
         return_date = f"{return_year}-{return_month:02d}-{return_day:02d}"
 
-        # 날짜 블록 이후에서 가격 패턴 찾기
+        # 날짜 블록 이후의 텍스트에서 가격 패턴 찾기
         price_search = re.search(price_pattern, body[date_match.end():])
         if not price_search:
             continue
@@ -79,34 +81,39 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
         price_start = date_match.end() + price_search.start()
         price_end = date_match.end() + price_search.end()
 
-        # 가격 패턴 뒤에서 항공사/경로/링크 추출
-        block_text = body[price_end: price_end + 200]  # 200자 정도만 탐색
-        airline_match = re.search(airline_pattern, block_text)
-        if not airline_match:
+        # 가격 패턴 뒤의 텍스트에서 모든 항공사/경로 정보 찾기
+        block_text = body[price_end: price_end + 500]  # 탐색 범위 확대
+        airline_matches = list(re.finditer(airline_pattern, block_text))
+        
+        if not airline_matches:
             continue
-        airline = airline_match.group(1).strip()
-        origin = airline_match.group(2)
-        destination = airline_match.group(3)
-        is_direct = '직항' in block_text[airline_match.start():airline_match.end()]
 
-        link_match = re.search(link_pattern, block_text)
-        link = link_match.group(0) if link_match else None
+        # 각 항공사/경로 정보에 대해 처리
+        for airline_match in airline_matches:
+            airline = airline_match.group(1).strip()
+            origin = airline_match.group(2)
+            destination = airline_match.group(3)
+            is_direct = '직항' in block_text[airline_match.start():airline_match.end()]
 
-        hash_input = f"{origin}{destination}{depart_date}{return_date}{airline}{price}"
-        hash_key = base64.b64encode(hash_input.encode()).decode()
+            # 해당 항공사/경로 정보 이후의 링크 찾기
+            link_search = re.search(link_pattern, block_text[airline_match.end():])
+            link = link_search.group(0) if link_search else None
 
-        results.append({
-            "source": source,
-            "origin": origin,
-            "destination": destination,
-            "departure_date": depart_date,
-            "arrival_date": return_date,
-            "airline": airline,
-            "price": price,
-            "link": link,
-            "hash_key": hash_key,
-            "direct": is_direct
-        })
+            hash_input = f"{origin}{destination}{depart_date}{return_date}{airline}{price}"
+            hash_key = base64.b64encode(hash_input.encode()).decode()
+
+            results.append({
+                "source": source,
+                "origin": origin,
+                "destination": destination,
+                "departure_date": depart_date,
+                "arrival_date": return_date,
+                "airline": airline,
+                "price": price,
+                "link": link,
+                "hash_key": hash_key,
+                "direct": is_direct
+            })
 
     return results
 

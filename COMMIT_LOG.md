@@ -14,4 +14,9 @@
 ## feat: mailing data init
 - Gmail API 연동 및 이메일 파싱 기능 구현
 - 항공권 정보 추출 로직 구현
-- 직항 여부(direct) 필드 추가 ~
+- 직항 여부(direct) 필드 추가
+
+## fix: timestamp unit consistency
+- last_processed.json의 타임스탬프를 밀리초에서 초 단위로 변경
+- Gmail API 쿼리와 저장 시 타임스탬프 단위 일관성 유지
+- save_last_processed_time에서 Gmail API의 internalDate를 초 단위로 변환
