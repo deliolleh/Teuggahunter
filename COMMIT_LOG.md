@@ -30,3 +30,12 @@
 - 정규식 패턴 개선: Google Flights 링크 패턴을 더 정확하게 수정
 - 특가 판별 기준 주석 추가로 로직 명확화
 - SecretFlying 라벨 타임스탬프 추가 (last_processed.json)
+
+## refactor: last_processed 코드 정리 및 Apps Script 연동 구조로 전환
+- Google Apps Script 트리거 구현
+  - 5분마다 트리거로 읽지 않고 별표되지 않은 이메일을 FastAPI로 전송
+  - 이메일 실시간 수신은 Gmail API(Pub/Sub) 방안도 고려 중이며, 향후 해당 방식으로 변경 가능
+- FastAPI는 받은 데이터만 파싱/DB 저장, last_processed 관련 코드/파일(메소드, json) 정리
+- Webhook 인증을 위한 시크릿 토큰 적용
+- Pub/Sub 등 서버 폴링 방식 도입 시 참고할 수 있도록 관련 메소드 주석 처리 및 PLAN.md에 설명 추가
+- 아키텍처/운영 방식의 변화와 외부 시스템 연동에 대한 맥락을 명확히 기록
