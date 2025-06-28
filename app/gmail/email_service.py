@@ -52,11 +52,29 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
     """
     이메일 본문에서 항공권 정보 블록을 파싱합니다.
     여러 항로의 특가 정보도 처리할 수 있습니다.
+    특가 판별 기준:
+      1순위: '여행자들은 일반적으로 ₩xxx의 가격으로 예약합니다.'
+      2순위: '대개 ₩xxx–₩yyy 사이입니다. 이보다 낮은 가격이 특가로 간주됩니다.'
+    특가가 아닌 것은 '괜찮은 가격'으로 게시글을 적을 수 있도록 AI 한테 알려줘야 함.
     """
     date_pattern = r'(\d{1,2})월\s*(\d{1,2})일\s*\([^)]+\)\s*-\s*(\d{1,2})월\s*(\d{1,2})일\s*\([^)]+\)'
     price_pattern = r'(?:\d+%\s*할인\s*)?최저가:\s*₩([\d,]+)'
     airline_pattern = r'([^·\n]+)·\s*(?:직항|경유)\s*·\s*([A-Z]{3})[–-]([A-Z]{3})'
-    link_pattern = r'https://www\.google\.com/travel/flights\?[^\s"]+'
+    link_pattern = r'https://www\.google\.com/travel/flights\?[\S"]+'
+
+    # 특가 기준 추출
+    avg_pattern = r'여행자들은 일반적으로\s*₩([\d,]+)의 가격으로 예약합니다'
+    range_pattern = r'대개\s*₩([\d,]+)[–-]₩([\d,]+) 사이입니다'
+    discount_pattern = r'(\d+)%\s*할인'  # 3순위: % 할인 표기
+
+    avg_match = re.search(avg_pattern, body)
+    range_match = re.search(range_pattern, body)
+    discount_match = re.search(discount_pattern, body)  # 할인 표기 확인
+    special_price = None
+    if avg_match:
+        special_price = int(avg_match.group(1).replace(',', ''))
+    elif range_match:
+        special_price = int(range_match.group(1).replace(',', ''))
 
     current_date = datetime.now()
     current_year = current_date.year
@@ -88,6 +106,13 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
         if not airline_matches:
             continue
 
+        # 특가 여부 판별
+        is_special_deal = False
+        if special_price is not None and price < special_price:
+            is_special_deal = True
+        elif discount_match:  # 3순위: % 할인 표기 있으면 True
+            is_special_deal = True
+
         # 각 항공사/경로 정보에 대해 처리
         for airline_match in airline_matches:
             airline = airline_match.group(1).strip()
@@ -112,7 +137,8 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
                 "price": price,
                 "link": link,
                 "hash_key": hash_key,
-                "direct": is_direct
+                "direct": is_direct,
+                "is_special_deal": is_special_deal
             })
 
     return results
