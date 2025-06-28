@@ -1,6 +1,7 @@
 import base64, quopri, re
 from typing import Dict, Any, List
 from datetime import datetime
+import logging
 
 from app.config import (
     GMAIL_CLIENT_ID,
@@ -14,6 +15,8 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
+logger = logging.getLogger("teuggahunter.email_service")
 
 def get_gmail_service():
     """
@@ -30,24 +33,6 @@ def get_gmail_service():
     
     return build('gmail', 'v1', credentials=creds)
 
-def extract_email_body(payload: Dict[str, Any]) -> str:
-    """
-    이메일 페이로드에서 본문을 추출합니다.
-    """
-    if 'parts' in payload:
-        parts = payload['parts']
-        body = ''
-        for part in parts:
-            if part['mimeType'] == 'text/plain':
-                if 'data' in part['body']:
-                    body += base64.urlsafe_b64decode(part['body']['data']).decode()
-                elif 'attachmentId' in part['body']:
-                    continue
-        return body
-    elif 'body' in payload and 'data' in payload['body']:
-        return base64.urlsafe_b64decode(payload['body']['data']).decode()
-    return ''
-
 def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
     """
     이메일 본문에서 항공권 정보 블록을 파싱합니다.
@@ -57,6 +42,7 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
       2순위: '대개 ₩xxx–₩yyy 사이입니다. 이보다 낮은 가격이 특가로 간주됩니다.'
     특가가 아닌 것은 '괜찮은 가격'으로 게시글을 적을 수 있도록 AI 한테 알려줘야 함.
     """
+    logger.info(f"[parse_flight_blocks] 파싱 시작 (source: {source})")
     date_pattern = r'(\d{1,2})월\s*(\d{1,2})일\s*\([^)]+\)\s*-\s*(\d{1,2})월\s*(\d{1,2})일\s*\([^)]+\)'
     price_pattern = r'(?:\d+%\s*할인\s*)?최저가:\s*₩([\d,]+)'
     airline_pattern = r'([^·\n]+)·\s*(?:직항|경유)\s*·\s*([A-Z]{3})[–-]([A-Z]{3})'
@@ -127,6 +113,8 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
             hash_input = f"{origin}{destination}{depart_date}{return_date}{airline}{price}"
             hash_key = base64.b64encode(hash_input.encode()).decode()
 
+            logger.debug(f"항공권: {airline} {origin}->{destination} {depart_date}~{return_date} {price}원 특가여부:{is_special_deal}")
+
             results.append({
                 "source": source,
                 "origin": origin,
@@ -141,21 +129,5 @@ def parse_flight_blocks(body: str, source: str) -> List[Dict[str, Any]]:
                 "is_special_deal": is_special_deal
             })
 
-    return results
-
-def get_all_labels() -> List[str]:
-    """
-    Gmail 계정의 사용자가 만든 라벨만 반환합니다.
-    """
-    service = get_gmail_service()
-    results = service.users().labels().list(userId='me').execute()
-    labels = results.get('labels', [])
-    
-    # 사용자가 만든 라벨만 필터링 (labelListVisibility가 'labelShow'인 라벨)
-    user_labels = [
-        label['name'] for label in labels 
-        if label.get('labelListVisibility') == 'labelShow'
-    ]
-    
-    print(f"Found {len(user_labels)} user-created labels: {user_labels}")
-    return user_labels 
+    logger.info(f"[parse_flight_blocks] 파싱 완료 - 총 {len(results)}건")
+    return results 

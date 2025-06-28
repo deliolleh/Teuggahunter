@@ -39,3 +39,13 @@
 - Webhook 인증을 위한 시크릿 토큰 적용
 - Pub/Sub 등 서버 폴링 방식 도입 시 참고할 수 있도록 관련 메소드 주석 처리 및 PLAN.md에 설명 추가
 - 아키텍처/운영 방식의 변화와 외부 시스템 연동에 대한 맥락을 명확히 기록
+
+## refactor: 불필요한 코드 정리
+- email_service.py에서 사용하지 않는 함수(extract_email_body, get_all_labels) 삭제
+- flight_service.py에서 사용하지 않는 extract_email_body import 제거
+- main.py에서 사용하지 않는 get_all_labels import 제거
+
+## feat: 로깅 시스템 추가
+- main.py에 logging 설정을 추가하여 터미널과 app.log 파일 모두에 로그가 남도록 개선
+- email_service.py, flight_service.py에 주요 이벤트/에러 로그 추가
+- 로그 파일(app.log) 미리 생성

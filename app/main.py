@@ -1,9 +1,26 @@
 from fastapi import FastAPI, Depends, Request, Header, HTTPException
 from app.services.flight_service import FlightService
-from app.gmail.email_service import get_all_labels
 from app.config import WEBHOOK_SECRET
+import logging
 
 app = FastAPI()
+
+logger = logging.getLogger("teuggahunter")
+logger.setLevel(logging.INFO)
+
+file_handler = logging.FileHandler("app.log", encoding="utf-8")
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+
+if not logger.hasHandlers():
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+else:
+    logger.handlers.clear()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 def get_flight_service():
     return FlightService()
@@ -41,4 +58,4 @@ async def receive_email(request: Request, x_webhook_secret: str = Header(None)):
     data = await request.json()
     flight_service = FlightService()
     result = await flight_service.process_email(data)
-    return {"status": "ok", "result": result} 
+    return {"status": "ok", "result": result}

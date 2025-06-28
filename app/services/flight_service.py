@@ -2,9 +2,12 @@ from typing import Dict, Any, List
 import json
 from fastapi import HTTPException
 import time
+import logging
 
-from app.gmail.email_service import get_gmail_service, extract_email_body, parse_flight_blocks
+from app.gmail.email_service import get_gmail_service, parse_flight_blocks
 from app.db.supabase_client import filter_new_flights, insert_flight
+
+logger = logging.getLogger("teuggahunter.flight_service")
 
 class FlightService:
     def __init__(self):
@@ -33,12 +36,25 @@ class FlightService:
     #     pass
 
     async def process_email(self, email_data: dict) -> dict:
+        logger.info(f"이메일 데이터 처리 시작: {email_data.get('subject', '')} (label: {email_data.get('label', '')})")
         body = email_data['body']
         label = email_data['label']
-        flight_blocks = parse_flight_blocks(body, label)
-        print(f"Found {len(flight_blocks)} flight blocks")
+        try:
+            flight_blocks = parse_flight_blocks(body, label)
+            logger.info(f"파싱된 항공권 블록 수: {len(flight_blocks)}")
+        except Exception as e:
+            logger.error(f"항공권 파싱 실패: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "message": f"파싱 실패: {e}",
+                "data": {
+                    "parsed_flights": [],
+                    "new_flights": []
+                }
+            }
 
         if not flight_blocks:
+            logger.warning("파싱된 항공권 정보 없음")
             return {
                 "status": "warning",
                 "message": f"No flight information found in email with label: {label}",
@@ -49,9 +65,10 @@ class FlightService:
             }
 
         new_flights = filter_new_flights(flight_blocks)
-        print(f"Found {len(new_flights)} new flights")
+        logger.info(f"신규 항공권 저장 대상: {len(new_flights)}")
 
         if not new_flights:
+            logger.info("모든 항공권이 이미 DB에 존재함")
             return {
                 "status": "info",
                 "message": f"All flights from email with label: {label} already exist in database",
@@ -63,12 +80,16 @@ class FlightService:
 
         saved_flights = []
         for flight in new_flights:
-            saved_flight = insert_flight(flight)
-            if saved_flight:
-                saved_flights.append(saved_flight)
-        print(f"Saved {len(saved_flights)} flights to database")
+            try:
+                saved_flight = insert_flight(flight)
+                if saved_flight:
+                    saved_flights.append(saved_flight)
+            except Exception as e:
+                logger.error(f"DB 저장 실패: {e}", exc_info=True)
+        logger.info(f"DB 저장 완료: {len(saved_flights)}건")
 
         if not saved_flights:
+            logger.error("DB 저장 실패: 신규 항공권 없음")
             return {
                 "status": "error",
                 "message": f"Failed to save new flights to database for label: {label}",
