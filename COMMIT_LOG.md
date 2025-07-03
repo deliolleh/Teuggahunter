@@ -49,3 +49,8 @@
 - main.py에 logging 설정을 추가하여 터미널과 app.log 파일 모두에 로그가 남도록 개선
 - email_service.py, flight_service.py에 주요 이벤트/에러 로그 추가
 - 로그 파일(app.log) 미리 생성
+
+## refactor: 라벨별 파싱 함수 분리 및 구조 리팩토링
+- parse_flight_blocks 함수에서 라벨명(googleflights, secretflying 등)에 따라 각 서비스별 파싱 함수로 분기하도록 구조 변경
+- 기존 구글 파싱 코드를 parse_google_flights 함수로 분리
+- secretflying 등 신규 서비스용 빈 파싱 함수 추가 (확장성 고려)
