@@ -63,3 +63,7 @@
 ## feat: DB 저장 성공 항공권만 Make Webhook으로 전송
 - DB 저장 성공 항공권만 Make Webhook(헤더 포함)으로 한 번에 전송
 - Make Webhook URI 및 API Key 헤더 적용
+
+## refactor: save_and_notify, send_to_make 함수 분리 및 구조 리팩토링
+- DB 저장/Make 전송 로직을 별도 함수로 분리
+- process_email은 클라이언트에 필요한 정보만 반환하도록 개선
