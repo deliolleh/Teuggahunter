@@ -54,3 +54,8 @@
 - parse_flight_blocks 함수에서 라벨명(googleflights, secretflying 등)에 따라 각 서비스별 파싱 함수로 분기하도록 구조 변경
 - 기존 구글 파싱 코드를 parse_google_flights 함수로 분리
 - secretflying 등 신규 서비스용 빈 파싱 함수 추가 (확장성 고려)
+
+## refactor: DB 저장 재시도 및 에러 처리/로깅 강화
+- insert_flight 실패 시 최대 5회 재시도
+- 성공/실패 항공권 분리 관리
+- DB 저장 실패 시 에러 응답 및 상세 로깅 강화
