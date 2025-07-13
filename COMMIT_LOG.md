@@ -59,3 +59,7 @@
 - insert_flight 실패 시 최대 5회 재시도
 - 성공/실패 항공권 분리 관리
 - DB 저장 실패 시 에러 응답 및 상세 로깅 강화
+
+## feat: DB 저장 성공 항공권만 Make Webhook으로 전송
+- DB 저장 성공 항공권만 Make Webhook(헤더 포함)으로 한 번에 전송
+- Make Webhook URI 및 API Key 헤더 적용
